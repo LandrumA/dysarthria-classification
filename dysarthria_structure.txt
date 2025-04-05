@@ -1,0 +1,20 @@
+/home/the_fat_cat/Documents/GitHub/dysarthria-classification/
+├── data
+│   └── dysarthria_raw
+│       └── dysarthria_raw_single-words
+│           └── NDDS-single-words
+│           └── TORGO-single-words
+│           └── NDDS Word Extraction Summary.txt
+│           └── UASpeech-single-words
+│ 	└── dysarthria_raw_original
+├── dysarthria_structure.txt
+├── file_naming_scheme.txt
+├── LICENSE
+├── notebooks
+│   ├── NDDS-single-word-extraction.ipynb
+│   └── UASpeech-renaming.ipynb
+├── README.md
+├── requirements.txt
+└── run_instructions.txt
+
+5 directories, 9 files

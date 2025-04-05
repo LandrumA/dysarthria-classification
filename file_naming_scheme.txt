@@ -1,0 +1,2 @@
+<dataset>_<gender>_<speakerNum>_<utteranceIndex>_<afflicted(a/c)>.wav, a for afflicted c for control
+
