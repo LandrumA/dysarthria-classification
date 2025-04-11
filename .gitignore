@@ -174,5 +174,7 @@ cython_debug/
 .pypirc
 
 #raw data
-data/dysarthria_raw/
+/home/the_fat_cat/Documents/GitHub/dysarthria-classification/data/dysarthria_raw/
+
+/home/the_fat_cat/Documents/GitHub/dysarthria-classification/data/preprocessed
 
