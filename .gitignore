@@ -172,3 +172,7 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+/home/the_fat_cat/Documents/GitHub/dysarthria-classification/data/dysarthria_raw
+
+/home/the_fat_cat/Documents/GitHub/dysarthria-classification/data/preprocessed/
