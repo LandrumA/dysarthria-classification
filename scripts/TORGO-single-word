@@ -1,0 +1,81 @@
+#!/usr/bin/env python3
+import os
+import shutil
+from tqdm import tqdm
+import librosa
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Configuration
+# ─────────────────────────────────────────────────────────────────────────────
+
+BASE_DIR        = "/home/the_fat_cat/Documents/data/dysarthria_raw/dysarthria_raw_original/TORGO"
+OUTPUT_FOLDER   = "/home/the_fat_cat/Documents/data/dysarthria_raw/dysarthria_raw_single-words/TORGO-single-words"
+MAX_DURATION    = 6.0                     # seconds
+SESSION_OFFSETS = {1: 1000, 2: 4000, 3: 6000}
+
+os.makedirs(OUTPUT_FOLDER, exist_ok=True)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Extraction logic (no silence filtering)
+# ─────────────────────────────────────────────────────────────────────────────
+
+for group in ["F", "M", "FC", "MC"]:
+    group_path = os.path.join(BASE_DIR, group)
+    if not os.path.isdir(group_path):
+        continue
+
+    status = "a" if group in ("F", "M") else "c"
+    gender = "f" if group.startswith("F") else "m"
+
+    for speaker in sorted(os.listdir(group_path)):
+        speaker_path = os.path.join(group_path, speaker)
+        if not os.path.isdir(speaker_path):
+            continue
+
+        for session_folder in sorted(os.listdir(speaker_path)):
+            if not session_folder.lower().startswith("session"):
+                continue
+
+            try:
+                session_num = int(session_folder[len("Session"):].split("_")[0])
+            except ValueError:
+                continue
+            if session_num not in SESSION_OFFSETS:
+                continue
+
+            offset = SESSION_OFFSETS[session_num]
+            recording_count = 0
+
+            session_path = os.path.join(speaker_path, session_folder)
+            wav_dir = os.path.join(session_path, "wav_arrayMic")
+            if not os.path.isdir(wav_dir):
+                wav_dir = os.path.join(session_path, "wav_ArrayMic")
+            if not os.path.isdir(wav_dir):
+                print(f"[!] No wav_arrayMic dir in {session_path}")
+                continue
+
+            for fname in sorted(os.listdir(wav_dir)):
+                if not fname.lower().endswith(".wav"):
+                    continue
+                in_path = os.path.join(wav_dir, fname)
+
+                # Duration filter only
+                try:
+                    duration = librosa.get_duration(filename=in_path)
+                except Exception as e:
+                    print(f"[!] Failed to load {in_path}: {e}")
+                    continue
+                if duration > MAX_DURATION:
+                    print(f"[!] Skipping {in_path}: duration {duration:.2f}s > {MAX_DURATION}s")
+                    continue
+
+                # Rename & copy
+                rec_num = str(offset + recording_count + 1).zfill(4)
+                out_name = f"TORGO_{gender}_{speaker}_{rec_num}_{status}.wav"
+                out_path = os.path.join(OUTPUT_FOLDER, out_name)
+
+                shutil.copyfile(in_path, out_path)
+                recording_count += 1
+
+            print(f"[✓] {gender.upper()}{speaker} Session{session_num} → {recording_count} files extracted")
