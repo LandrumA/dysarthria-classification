@@ -1,44 +1,25 @@
-#!/usr/bin/env python3
-"""
-count_utterances_fixed.py
+from collections import defaultdict, Counter
+import os, glob
 
-Count the number of speakers and utterances (MFCC .npy files) in the UASpeech dataset.
-Assumes filenames like UAS_f_04_2111_a.npy where:
-    - 'UAS_f_04' is the speaker ID
-    - Each file corresponds to one utterance
-
-Usage:
-    python count_utterances_fixed.py
-"""
-
-import os
-import glob
-import re
-import collections
-
-# Hardcoded root directory
-ROOT_DIR = '/home/the_fat_cat/Documents/data/features/MFCCs/UASpeech/'
+ROOT_2D = "/home/the_fat_cat/Documents/data/features/MFCCs/UASpeech/2D"
 
 def extract_speaker_id(fname):
-    """Extracts speaker ID from filename, e.g., UAS_f_04_2111_a.npy -> UAS_f_04"""
-    base = os.path.basename(fname)
-    parts = base.split('_')
-    if len(parts) < 4:
-        return None
-    return '_'.join(parts[:3])
+    parts = fname.replace(".npy", "").split("_")
+    if len(parts) != 5:
+        raise ValueError(f"Unexpected filename format: {fname}")
+    return f"{parts[0]}_{parts[1]}_{parts[2]}_{parts[4]}"  # e.g. UAS_f_04_a
 
-def main():
-    counter = collections.Counter()
-    for fp in glob.glob(os.path.join(ROOT_DIR, "**", "*.npy"), recursive=True):
-        sid = extract_speaker_id(fp)
-        if sid:
-            counter[sid] += 1
+speaker_label = {}
 
-    print(f"Total speakers: {len(counter)}\n")
-    print(f'{"Speaker ID":<15}{"Utterances":>12}')
-    print("-" * 27)
-    for sid, count in sorted(counter.items()):
-        print(f"{sid:<15}{count:>12}")
+for f in glob.glob(os.path.join(ROOT_2D, "*.npy")):
+    fname = os.path.basename(f)
+    speaker_id = extract_speaker_id(fname)
+    label = 1 if speaker_id.endswith("_a") else 0
+    speaker_label[speaker_id] = label  # deduplicates by speaker
 
-if __name__ == "__main__":
-    main()
+# Count unique speakers
+counts = Counter(speaker_label.values())
+print("✔ True unique speaker counts:")
+print(f"Afflicted: {counts[1]}")
+print(f"Control  : {counts[0]}")
+print(f"Total    : {len(speaker_label)} speakers")
