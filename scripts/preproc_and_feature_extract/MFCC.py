@@ -1,75 +1,94 @@
-import os
-import librosa
-import numpy as np
-import pandas as pd
+#!/usr/bin/env python3
+"""
+Extract 39-D MFCC features (13 MFCC + Δ + ΔΔ) from single-word clips,
+**skipping any recording shorter than 0.20 s**.
+
+Output layout
+─────────────
+features/MFCCs/<DATASET>/
+    ├── 2D/         # per-clip  (39 × T)  → .npy
+    └── 1D/         # per-clip  time-mean → mfcc_39d_<DATASET>.csv
+
+Compatible with downstream training scripts that expect filenames like:
+    UAS_m_13_5348_c.npy        (dataset prefix kept)
+"""
+
+import os, sys, traceback
+import librosa, numpy as np, pandas as pd
 from tqdm import tqdm
 
-# ========== CONFIGURATION ==========
-INPUT_DIRS = {
-    "NDDS":    "/home/the_fat_cat/Documents/data/dysarthria_raw/dysarthria_raw_single-words/NDDS-single-words",
-    "TORGO":   "/home/the_fat_cat/Documents/data/dysarthria_raw/dysarthria_raw_single-words/TORGO-single-words",
-    "UASpeech":"/home/the_fat_cat/Documents/data/dysarthria_raw/dysarthria_raw_single-words/UASpeech-single-words",
-}
+# ── CONFIG ──────────────────────────────────────────────────────────────
+DATA_ROOT = "/home/the_fat_cat/Documents/data/dysarthria_raw/dysarthria_raw_single-words"
+DATASETS  = ["NDDS", "TORGO", "UASpeech"]          # sub-folder names
+OUT_ROOT  = "/home/the_fat_cat/Documents/data/features/MFCCs"
 
-BASE_OUTPUT_DIR_1D = "/home/the_fat_cat/Documents/data/features/MFCCs"
-BASE_OUTPUT_DIR_2D = "/home/the_fat_cat/Documents/data/features/MFCCs"
-SR = 16000
-N_MFCC = 13
-DELTA_WIDTH = 9  # default window width for delta feature
+MIN_DUR   = 0.20   # s  → skip recordings shorter than this
+SR        = 16_000
+N_MFCC    = 13
+N_FFT     = 400    # 25 ms window
+HOP       = 160    # 10 ms hop  → good time resolution
+DELTA_W   = 9      # librosa default (odd)
 
-print("Extracting MFCC + Delta + Delta-Delta features...")
+# ── helpers ─────────────────────────────────────────────────────────────
+def ensure(path):
+    os.makedirs(path, exist_ok=True)
 
-total_files = sum(len(files) for folder in INPUT_DIRS.values() for _, _, files in os.walk(folder))
-pbar = tqdm(total=total_files, desc="Overall Progress", unit="file")
+def extract_39d(y):
+    mfcc   = librosa.feature.mfcc(y=y, sr=SR, n_mfcc=N_MFCC,
+                                  n_fft=N_FFT, hop_length=HOP)
+    delta  = librosa.feature.delta(mfcc,  width=DELTA_W, mode="nearest")
+    delta2 = librosa.feature.delta(mfcc, order=2, width=DELTA_W, mode="nearest")
+    return np.vstack([mfcc, delta, delta2])        # (39, T)
 
-for dataset, folder in INPUT_DIRS.items():
-    output_dir_1d = os.path.join(BASE_OUTPUT_DIR_1D, dataset)
-    output_dir_2d = os.path.join(BASE_OUTPUT_DIR_2D, dataset)
-    os.makedirs(output_dir_1d, exist_ok=True)
-    os.makedirs(output_dir_2d, exist_ok=True)
+# ── count total wav files for progress bar ──────────────────────────────
+total = sum(
+    len([f for _, _, fs in os.walk(os.path.join(DATA_ROOT, f"{d}-single-words"))
+         for f in fs if f.endswith(".wav")])
+    for d in DATASETS
+)
+pbar = tqdm(total=total, unit="file", desc="Overall")
 
-    rows = []  # store 1D feature rows
+# ── iterate datasets ────────────────────────────────────────────────────
+for ds in DATASETS:
+    in_dir  = os.path.join(DATA_ROOT, f"{ds}-single-words")
+    out_2d  = os.path.join(OUT_ROOT, ds, "2D")
+    out_1d  = os.path.join(OUT_ROOT, ds, "1D")
+    ensure(out_2d);  ensure(out_1d)
 
-    for root, _, files in os.walk(folder):
-        for file in files:
-            if not file.endswith(".wav"):
-                continue
+    rows = []
+    for root, _, files in os.walk(in_dir):
+        for fname in files:
+            if not fname.endswith(".wav"):
+                pbar.update();  continue
 
-            file_path = os.path.join(root, file)
+            fpath = os.path.join(root, fname)
             try:
-                y, _ = librosa.load(file_path, sr=SR)
-                mfcc = librosa.feature.mfcc(y=y, sr=SR, n_mfcc=N_MFCC)
-                n_frames = mfcc.shape[1]
+                y, _ = librosa.load(fpath, sr=SR)
+                if len(y) < MIN_DUR * SR:
+                    tqdm.write(f"⏭  <0.20 s  {fname}")
+                    pbar.update();  continue
 
-                # Skip files with too few frames for delta computation
-                if n_frames < DELTA_WIDTH:
-                    print(f"Skipping {file_path}: only {n_frames} frames (<{DELTA_WIDTH})")
-                    pbar.update(1)
-                    continue
+                feat = extract_39d(y)
 
-                # Compute delta and delta-delta
-                delta = librosa.feature.delta(mfcc)
-                delta2 = librosa.feature.delta(mfcc, order=2)
-                mfcc_combined = np.vstack([mfcc, delta, delta2])  # Shape: (39, T)
+                base = os.path.splitext(fname)[0]
+                np.save(os.path.join(out_2d, base + ".npy"), feat)
 
-                # ----- 1D Feature: average across time -----
-                mfcc_1d = np.mean(mfcc_combined, axis=1)
-                rows.append([file] + mfcc_1d.tolist())
-
-                # ----- 2D Feature: save per-clip -----
-                out_path_2d = os.path.join(output_dir_2d, file.replace(".wav", ".npy"))
-                np.save(out_path_2d, mfcc_combined)
+                rows.append([fname] + feat.mean(axis=1).tolist())
 
             except Exception as e:
-                print(f"Failed to process {file_path}: {e}")
-            finally:
-                pbar.update(1)
+                tqdm.write(f"⚠️  {fname}: {e}")
+                tqdm.write(traceback.format_exc())
 
-    # Save CSV for this dataset
-    columns = ["filename"] + [f"mfcc{i+1}" for i in range(13)] + [f"delta{i+1}" for i in range(13)] + [f"delta2_{i+1}" for i in range(13)]
-    df = pd.DataFrame(rows, columns=columns)
-    csv_path = os.path.join(output_dir_1d, f"mfcc_features_39D_{dataset}.csv")
-    df.to_csv(csv_path, index=False)
+            finally:
+                pbar.update()
+
+    # write CSV (1-D means)
+    cols = (["filename"] +
+            [f"mfcc{i+1}"   for i in range(13)] +
+            [f"delta{i+1}"  for i in range(13)] +
+            [f"delta2_{i+1}" for i in range(13)])
+    pd.DataFrame(rows, columns=cols)\
+      .to_csv(os.path.join(out_1d, f"mfcc_39d_{ds}.csv"), index=False)
 
 pbar.close()
-print("Feature extraction complete.")
+print("Feature extraction finished (>=0.20 s only).")

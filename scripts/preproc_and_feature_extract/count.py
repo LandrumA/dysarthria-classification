@@ -1,26 +1,44 @@
 #!/usr/bin/env python3
-import pandas as pd
+"""
+count_utterances_fixed.py
 
-# Load the CSV file
-csv_path = "/home/the_fat_cat/Documents/data/features/MFCCs/TORGO/mfcc_features_39D_TORGO.csv"
-df = pd.read_csv(csv_path)
+Count the number of speakers and utterances (MFCC .npy files) in the UASpeech dataset.
+Assumes filenames like UAS_f_04_2111_a.npy where:
+    - 'UAS_f_04' is the speaker ID
+    - Each file corresponds to one utterance
 
-# Extract the status ('a' or 'c') from the filename
-df['status'] = df['filename'].str.extract(r'_([ac])\.wav$')
+Usage:
+    python count_utterances_fixed.py
+"""
 
-# Extract speaker ID (e.g., F02, M01, etc.)
-df['speaker'] = df['filename'].str.extract(r'_(F|M|FC|MC)?(\d{2})_')[1]
-df['group']   = df['filename'].str.extract(r'_(F|M|FC|MC)?(\d{2})_')[0]
-df['speaker_id'] = df['group'].fillna('') + df['speaker']
+import os
+import glob
+import re
+import collections
 
-# Count total recordings
-counts = df['status'].value_counts()
+# Hardcoded root directory
+ROOT_DIR = '/home/the_fat_cat/Documents/data/features/MFCCs/UASpeech/'
 
-# Count unique speakers per class
-speaker_counts = df.groupby('status')['speaker_id'].nunique()
+def extract_speaker_id(fname):
+    """Extracts speaker ID from filename, e.g., UAS_f_04_2111_a.npy -> UAS_f_04"""
+    base = os.path.basename(fname)
+    parts = base.split('_')
+    if len(parts) < 4:
+        return None
+    return '_'.join(parts[:3])
 
-# Print results
-print("Afflicted count:", counts.get('a', 0))
-print("Control count:", counts.get('c', 0))
-print("Unique afflicted speakers:", speaker_counts.get('a', 0))
-print("Unique control speakers:", speaker_counts.get('c', 0))
+def main():
+    counter = collections.Counter()
+    for fp in glob.glob(os.path.join(ROOT_DIR, "**", "*.npy"), recursive=True):
+        sid = extract_speaker_id(fp)
+        if sid:
+            counter[sid] += 1
+
+    print(f"Total speakers: {len(counter)}\n")
+    print(f'{"Speaker ID":<15}{"Utterances":>12}')
+    print("-" * 27)
+    for sid, count in sorted(counter.items()):
+        print(f"{sid:<15}{count:>12}")
+
+if __name__ == "__main__":
+    main()
