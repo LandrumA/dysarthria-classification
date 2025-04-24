@@ -10,7 +10,7 @@ import librosa
 
 BASE_DIR        = "/home/the_fat_cat/Documents/data/dysarthria_raw/dysarthria_raw_original/TORGO"
 OUTPUT_FOLDER   = "/home/the_fat_cat/Documents/data/dysarthria_raw/dysarthria_raw_single-words/TORGO-single-words"
-MAX_DURATION    = 6.0                     # seconds
+MAX_DURATION    = 3.0                     # seconds
 SESSION_OFFSETS = {1: 1000, 2: 4000, 3: 6000}
 
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)

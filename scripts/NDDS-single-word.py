@@ -9,7 +9,7 @@ from tqdm import tqdm
 # ── CONFIGURATION ──────────────────────────────────────────────────────────────
 INPUT_BASE       = Path("/home/the_fat_cat/Documents/data/dysarthria_raw/dysarthria_raw_original/NDDS/NDDS/SPEECH/SENT")
 OUTPUT_BASE      = Path("/home/the_fat_cat/Documents/data/dysarthria_raw/dysarthria_raw_single-words/NDDS-single-words")
-MAX_DURATION_SEC = 6.0       # skip segments longer than this (in seconds)
+MAX_DURATION_SEC = 3.0       # skip segments longer than this (in seconds)
 SILENCE_DB       = -40.0     # skip segments quieter than this (RMS in dB)
 # ────────────────────────────────────────────────────────────────────────────────
 

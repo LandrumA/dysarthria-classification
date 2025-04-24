@@ -29,7 +29,7 @@ def parse_speaker_folder_name(folder_name: str):
     if m := re.match(r"^M(\d{2})$", folder_name):  return ("m", m.group(1), "a")
     return None
 
-def is_valid_audio(file_path, max_duration_sec=6.0, silence_threshold_db=-40.0):
+def is_valid_audio(file_path, max_duration_sec=3.0, silence_threshold_db=-40.0):
     try:
         y, sr = librosa.load(file_path, sr=None)
         if librosa.get_duration(y=y, sr=sr) > max_duration_sec:
